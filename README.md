@@ -69,14 +69,10 @@ Edit the `config.py` file to configure your MongoDB/DocumentDB connection:
 
 ```python
 class Config:
-    # Local connection
-    MONGO_URI = "mongodb://localhost:27017/"
+    # documentdb
+    MONGO_URI = "mongodb+srv://user:password@documentdb.mongodb.net/"
     
-    # Or MongoDB Atlas
-    MONGO_URI = "mongodb+srv://user:password@cluster.mongodb.net/"
-    
-    # Or with authentication
-    MONGO_URI = "mongodb://user:password@host:port/"
+
 ```
 
 ### Run the application
@@ -197,11 +193,8 @@ Modifiez le fichier `config.py` pour configurer votre connexion :
 
 ```python
 class Config:
-    # Connexion locale
-    MONGO_URI = "mongodb://localhost:27017/"
-    
-    # Ou avec authentification
-    MONGO_URI = "mongodb://utilisateur:motdepasse@host:port/"
+      # documentdb
+    MONGO_URI = "mongodb+srv://user:password@documentdb.mongodb.net/"
 ```
 
 #### Lancer l'application
@@ -271,12 +264,8 @@ Bearbeiten Sie die Datei `config.py`, um Ihre Verbindung zu konfigurieren:
 
 ```python
 class Config:
-    # Lokale Verbindung
-    MONGO_URI = "mongodb://localhost:27017/"
-    
-    # Oder mit Authentifizierung
-    MONGO_URI = "mongodb://benutzer:passwort@host:port/"
-```
+    # documentdb
+    MONGO_URI = "mongodb+srv://user:password@documentdb.mongodb.net/"
 
 #### Anwendung starten
 
@@ -296,3 +285,4 @@ Für den Produktionseinsatz:
 3. Konfigurieren Sie einen WSGI-Server (Gunicorn, uWSGI)
 4. Fügen Sie Benutzerauthentifizierung hinzu
 5. Verwenden Sie HTTPS
+
