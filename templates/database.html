@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}{{ database }} - {{ t('collections') }}{% endblock %}
+
+{% block content %}
+<div class="col-12 py-4">
+    <div class="container">
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('index') }}"><i class="bi bi-house"></i> {{ t('home') }}</a>
+                </li>
+                <li class="breadcrumb-item active">{{ database }}</li>
+            </ol>
+        </nav>
+        
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>
+                <i class="bi bi-database-fill text-primary"></i>
+                {{ database }}
+            </h2>
+            <span class="badge bg-warning text-dark stats-badge">
+                {{ t('collection_count', count=collections|length) }}
+            </span>
+        </div>
+        
+        <div class="row">
+            {% for coll in collections %}
+            <div class="col-md-4 col-lg-3 mb-4">
+                <div class="card card-collection h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="bi bi-folder-fill text-warning"></i>
+                            {{ coll }}
+                        </h5>
+                        <div class="small text-muted">
+                            <span class="badge bg-secondary">
+                                {{ collection_stats[coll].count }} {{ t('documents') }}
+                            </span>
+                            {% if collection_stats[coll].size %}
+                            <span class="badge bg-info">
+                                {{ (collection_stats[coll].size / 1024)|round(2) }} KB
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-footer bg-transparent border-0">
+                        <div class="btn-group w-100" role="group">
+                            <a href="{{ url_for('view_collection', db_name=database, coll_name=coll) }}" 
+                               class="btn btn-primary btn-sm">
+                                <i class="bi bi-eye"></i> {{ t('view') }}
+                            </a>
+                            <a href="{{ url_for('search_page', db_name=database, coll_name=coll) }}" 
+                               class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-search"></i>
+                            </a>
+                            <a href="{{ url_for('bulk_operations_page', db_name=database, coll_name=coll) }}" 
+                               class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-gear"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    {{ t('no_documents') }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

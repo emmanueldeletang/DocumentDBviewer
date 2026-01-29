@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('new_document') if is_new else t('edit_document') }}{% endblock %}
+
+{% block content %}
+<div class="col-12 py-4">
+    <div class="container">
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('index') }}"><i class="bi bi-house"></i> {{ t('home') }}</a>
+                </li>
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('view_database', db_name=database) }}">{{ database }}</a>
+                </li>
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('view_collection', db_name=database, coll_name=collection) }}">{{ collection }}</a>
+                </li>
+                <li class="breadcrumb-item active">
+                    {{ t('new_document') if is_new else t('edit') }}
+                </li>
+            </ol>
+        </nav>
+        
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>
+                <i class="bi bi-{{ 'plus-circle' if is_new else 'pencil-square' }}"></i>
+                {{ t('new_document') if is_new else t('edit_document') }}
+            </h2>
+        </div>
+        
+        <!-- Form -->
+        <form action="{{ url_for('action_save_document') }}" method="POST" id="documentForm">
+            <input type="hidden" name="database" value="{{ database }}">
+            <input type="hidden" name="collection" value="{{ collection }}">
+            {% if not is_new %}
+            <input type="hidden" name="doc_id" value="{{ doc_id }}">
+            {% endif %}
+            
+            <div class="row">
+                <!-- Main Editor -->
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-code-slash"></i> {{ t('json_editor') }}</span>
+                            <div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatDocument()">
+                                    <i class="bi bi-code"></i> {{ t('format') }}
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-info" onclick="validateJSON()">
+                                    <i class="bi bi-check-circle"></i> {{ t('validate') }}
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <textarea name="document_json" id="documentEditor" class="form-control font-monospace" 
+                                      rows="20" style="font-size: 0.9rem;">{{ document | tojson(indent=2) if document else '{\n  \n}' }}</textarea>
+                            <div id="jsonError" class="alert alert-danger mt-3 d-none"></div>
+                        </div>
+                        <div class="card-footer">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save"></i> 
+                                {{ t('create') if is_new else t('save') }}
+                            </button>
+                            <a href="{{ url_for('view_collection', db_name=database, coll_name=collection) }}" 
+                               class="btn btn-secondary">
+                                <i class="bi bi-x"></i> {{ t('cancel') }}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Schema Helper -->
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="bi bi-lightbulb"></i> {{ t('existing_fields') }}
+                        </div>
+                        <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                            {% if schema %}
+                            <p class="small text-muted">{{ t('click_field_to_add') }}</p>
+                            <div class="list-group list-group-flush">
+                                {% for field, info in schema.items() %}
+                                {% if not field.startswith('_') %}
+                                <button type="button" class="list-group-item list-group-item-action" 
+                                        onclick="insertField('{{ field }}', '{{ info.types[0] if info.types else 'string' }}')">
+                                    <strong>{{ field }}</strong>
+                                    <br>
+                                    <small class="text-muted">
+                                        <span class="badge bg-info">{{ info.types|join(', ') }}</span>
+                                        {% if info.sample %}
+                                        - Ex: {{ info.sample|truncate(30) }}
+                                        {% endif %}
+                                    </small>
+                                </button>
+                                {% endif %}
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <p class="text-muted">{{ t('no_schema_available') }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Add Field -->
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <i class="bi bi-plus-circle"></i> {{ t('add_field') }}
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-2">
+                                <input type="text" class="form-control form-control-sm" 
+                                       id="newFieldName" placeholder="{{ t('field_name') }}">
+                            </div>
+                            <div class="mb-2">
+                                <select class="form-select form-select-sm" id="newFieldType">
+                                    <option value="string">{{ t('text') }}</option>
+                                    <option value="number">{{ t('number') }}</option>
+                                    <option value="boolean">{{ t('boolean') }}</option>
+                                    <option value="array">{{ t('array') }}</option>
+                                    <option value="object">{{ t('object') }}</option>
+                                    <option value="null">{{ t('null') }}</option>
+                                </select>
+                            </div>
+                            <div class="mb-2">
+                                <input type="text" class="form-control form-control-sm" 
+                                       id="newFieldValue" placeholder="{{ t('value') }}">
+                            </div>
+                            <button type="button" class="btn btn-sm btn-success w-100" onclick="addNewField()">
+                                <i class="bi bi-plus"></i> {{ t('add') }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const MSG_VALID_JSON = '{{ t("valid_json") }}';
+    const MSG_JSON_ERROR = '{{ t("json_error") }}';
+    const MSG_FIX_JSON_ADD = '{{ t("fix_json_before_add") }}';
+    const MSG_ENTER_FIELD = '{{ t("enter_field_name") }}';
+    const MSG_FIX_JSON_SAVE = '{{ t("fix_json_before_save") }}';
+
+    function validateJSON() {
+        const editor = document.getElementById('documentEditor');
+        const errorDiv = document.getElementById('jsonError');
+        
+        try {
+            JSON.parse(editor.value);
+            errorDiv.classList.add('d-none');
+            alert(MSG_VALID_JSON);
+            return true;
+        } catch (e) {
+            errorDiv.textContent = MSG_JSON_ERROR + ': ' + e.message;
+            errorDiv.classList.remove('d-none');
+            return false;
+        }
+    }
+    
+    function formatDocument() {
+        const editor = document.getElementById('documentEditor');
+        const errorDiv = document.getElementById('jsonError');
+        
+        try {
+            const parsed = JSON.parse(editor.value);
+            editor.value = JSON.stringify(parsed, null, 2);
+            errorDiv.classList.add('d-none');
+        } catch (e) {
+            errorDiv.textContent = MSG_JSON_ERROR + ': ' + e.message;
+            errorDiv.classList.remove('d-none');
+        }
+    }
+    
+    function insertField(fieldName, fieldType) {
+        const editor = document.getElementById('documentEditor');
+        
+        try {
+            const doc = JSON.parse(editor.value);
+            
+            if (!(fieldName in doc)) {
+                let defaultValue;
+                switch (fieldType) {
+                    case 'str': defaultValue = ''; break;
+                    case 'int': case 'float': defaultValue = 0; break;
+                    case 'bool': defaultValue = false; break;
+                    case 'list': defaultValue = []; break;
+                    case 'dict': defaultValue = {}; break;
+                    default: defaultValue = null;
+                }
+                doc[fieldName] = defaultValue;
+                editor.value = JSON.stringify(doc, null, 2);
+            }
+        } catch (e) {
+            alert(MSG_FIX_JSON_ADD);
+        }
+    }
+    
+    function addNewField() {
+        const fieldName = document.getElementById('newFieldName').value;
+        const fieldType = document.getElementById('newFieldType').value;
+        const fieldValue = document.getElementById('newFieldValue').value;
+        
+        if (!fieldName) {
+            alert(MSG_ENTER_FIELD);
+            return;
+        }
+        
+        const editor = document.getElementById('documentEditor');
+        
+        try {
+            const doc = JSON.parse(editor.value);
+            
+            let value;
+            switch (fieldType) {
+                case 'number':
+                    value = parseFloat(fieldValue) || 0;
+                    break;
+                case 'boolean':
+                    value = fieldValue.toLowerCase() === 'true';
+                    break;
+                case 'array':
+                    try { value = JSON.parse(fieldValue); } 
+                    catch { value = []; }
+                    break;
+                case 'object':
+                    try { value = JSON.parse(fieldValue); } 
+                    catch { value = {}; }
+                    break;
+                case 'null':
+                    value = null;
+                    break;
+                default:
+                    value = fieldValue;
+            }
+            
+            doc[fieldName] = value;
+            editor.value = JSON.stringify(doc, null, 2);
+            
+            // Reset fields
+            document.getElementById('newFieldName').value = '';
+            document.getElementById('newFieldValue').value = '';
+        } catch (e) {
+            alert(MSG_FIX_JSON_ADD);
+        }
+    }
+    
+    // Validate before submit
+    document.getElementById('documentForm').addEventListener('submit', function(e) {
+        if (!validateJSON()) {
+            e.preventDefault();
+            alert(MSG_FIX_JSON_SAVE);
+        }
+    });
+</script>
+{% endblock %}

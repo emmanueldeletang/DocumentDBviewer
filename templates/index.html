@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('app_name') }} - {{ t('databases') }}{% endblock %}
+
+{% block content %}
+<div class="col-12 py-4">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-database"></i> {{ t('databases') }}</h2>
+            <span class="badge bg-primary stats-badge">
+                {{ t('database_count', count=databases|length) }}
+            </span>
+        </div>
+        
+        <div class="row">
+            {% for db in databases %}
+            <div class="col-md-4 col-lg-3 mb-4">
+                <div class="card card-db h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="bi bi-database-fill text-primary"></i>
+                            {{ db }}
+                        </h5>
+                        <p class="card-text text-muted small">
+                            {{ t('click_to_view_collections') }}
+                        </p>
+                    </div>
+                    <div class="card-footer bg-transparent border-0">
+                        <a href="{{ url_for('view_database', db_name=db) }}" class="btn btn-primary btn-sm w-100">
+                            <i class="bi bi-arrow-right"></i> {{ t('explore') }}
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    {{ t('no_databases_found') }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

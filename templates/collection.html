@@ -1,0 +1,414 @@
+{% extends "base.html" %}
+
+{% block title %}{{ collection }} - {{ t('documents') }}{% endblock %}
+
+{% block content %}
+<div class="col-12 py-4">
+    <div class="container-fluid">
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('index') }}"><i class="bi bi-house"></i> {{ t('home') }}</a>
+                </li>
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('view_database', db_name=database) }}">{{ database }}</a>
+                </li>
+                <li class="breadcrumb-item active">{{ collection }}</li>
+            </ol>
+        </nav>
+        
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>
+                <i class="bi bi-folder-fill text-warning"></i>
+                {{ collection }}
+            </h2>
+            <div>
+                <span class="badge bg-secondary me-2">{{ total }} {{ t('documents') }}</span>
+                <a href="{{ url_for('new_document', db_name=database, coll_name=collection) }}" 
+                   class="btn btn-success btn-sm">
+                    <i class="bi bi-plus-lg"></i> {{ t('new') }}
+                </a>
+                <a href="{{ url_for('search_page', db_name=database, coll_name=collection) }}" 
+                   class="btn btn-primary btn-sm">
+                    <i class="bi bi-search"></i> {{ t('search') }}
+                </a>
+                <a href="{{ url_for('bulk_operations_page', db_name=database, coll_name=collection) }}" 
+                   class="btn btn-warning btn-sm">
+                    <i class="bi bi-gear"></i> {{ t('bulk_operations') }}
+                </a>
+            </div>
+        </div>
+        
+        <!-- Bulk Actions Bar -->
+        <div class="bulk-actions" id="bulkActions">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <strong><span id="selectedCount">0</span> {{ t('selected_documents', count='') }}</strong>
+                </div>
+                <div class="btn-group">
+                    <button type="button" class="btn btn-danger btn-sm" onclick="bulkDelete()">
+                        <i class="bi bi-trash"></i> {{ t('delete') }}
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#bulkEditModal">
+                        <i class="bi bi-pencil"></i> {{ t('edit') }}
+                    </button>
+                    <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#transferModal">
+                        <i class="bi bi-arrow-right-circle"></i> {{ t('transfer') }}
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Documents Table -->
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th width="40">
+                                    <input type="checkbox" class="form-check-input" id="selectAll" onchange="toggleSelectAll()">
+                                </th>
+                                <th>{{ t('id') }}</th>
+                                <th>{{ t('preview') }}</th>
+                                <th>{{ t('metadata') }}</th>
+                                <th width="150">{{ t('actions') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for doc in documents %}
+                            <tr>
+                                <td>
+                                    <input type="checkbox" class="form-check-input doc-checkbox" 
+                                           value="{{ doc._id['$oid'] if doc._id is mapping else doc._id }}"
+                                           onchange="updateBulkActions()">
+                                </td>
+                                <td>
+                                    <code class="document-id">
+                                        {{ doc._id['$oid'] if doc._id is mapping else doc._id }}
+                                    </code>
+                                </td>
+                                <td>
+                                    <div class="text-truncate" style="max-width: 400px;">
+                                        {% set preview_fields = [] %}
+                                        {% for key, value in doc.items() %}
+                                            {% if key not in ['_id', '_created_at', '_updated_at'] %}
+                                                {% if preview_fields|length < 3 %}
+                                                    {% if value is string %}
+                                                        {% set _ = preview_fields.append(key ~ ': ' ~ value[:50]) %}
+                                                    {% elif value is number %}
+                                                        {% set _ = preview_fields.append(key ~ ': ' ~ value) %}
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endif %}
+                                        {% endfor %}
+                                        {{ preview_fields|join(' | ') if preview_fields else 'Document vide' }}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if doc._created_at %}
+                                    <small class="text-muted">
+                                        <i class="bi bi-calendar"></i>
+                                        {% if doc._created_at is mapping %}
+                                            {{ doc._created_at['$date'][:10] if doc._created_at['$date'] is string else 'N/A' }}
+                                        {% else %}
+                                            {{ doc._created_at }}
+                                        {% endif %}
+                                    </small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{{ url_for('view_document', db_name=database, coll_name=collection, doc_id=doc._id['$oid'] if doc._id is mapping else doc._id) }}" 
+                                           class="btn btn-outline-primary" title="{{ t('view') }}">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <a href="{{ url_for('edit_document', db_name=database, coll_name=collection, doc_id=doc._id['$oid'] if doc._id is mapping else doc._id) }}" 
+                                           class="btn btn-outline-warning" title="{{ t('edit') }}">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-outline-danger" 
+                                                onclick="confirmDelete('{{ doc._id['$oid'] if doc._id is mapping else doc._id }}')"
+                                                title="{{ t('delete') }}">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4">
+                                    <div class="text-muted">
+                                        <i class="bi bi-inbox display-4"></i>
+                                        <p class="mt-2">{{ t('no_documents') }}</p>
+                                        <a href="{{ url_for('new_document', db_name=database, coll_name=collection) }}" 
+                                           class="btn btn-primary">
+                                            <i class="bi bi-plus-lg"></i> {{ t('create_document') }}
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                {% if total_pages > 1 %}
+                <nav aria-label="Pagination" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        <li class="page-item {{ 'disabled' if page == 1 }}">
+                            <a class="page-link" href="{{ url_for('view_collection', db_name=database, coll_name=collection, page=page-1) }}">
+                                <i class="bi bi-chevron-left"></i>
+                            </a>
+                        </li>
+                        
+                        {% for p in range(1, total_pages + 1) %}
+                            {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+                            <li class="page-item {{ 'active' if p == page }}">
+                                <a class="page-link" href="{{ url_for('view_collection', db_name=database, coll_name=collection, page=p) }}">
+                                    {{ p }}
+                                </a>
+                            </li>
+                            {% elif p == page - 3 or p == page + 3 %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        <li class="page-item {{ 'disabled' if page == total_pages }}">
+                            <a class="page-link" href="{{ url_for('view_collection', db_name=database, coll_name=collection, page=page+1) }}">
+                                <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Schema Info -->
+        {% if schema %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-diagram-3"></i> {{ t('collection_schema') }}
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for field, info in schema.items() %}
+                    <div class="col-md-4 col-lg-3 mb-2">
+                        <div class="border rounded p-2">
+                            <strong>{{ field }}</strong>
+                            <span class="badge bg-info field-badge">{{ info.types|join(', ') }}</span>
+                            <br>
+                            <small class="text-muted">{{ info.count }} {{ t('occurrences') }}</small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">{{ t('confirm_delete') }}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>{{ t('delete_confirm_message') }}</p>
+                <p class="text-muted small">{{ t('action_irreversible') }}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ t('cancel') }}</button>
+                <form id="deleteForm" action="{{ url_for('action_delete_document') }}" method="POST" style="display: inline;">
+                    <input type="hidden" name="database" value="{{ database }}">
+                    <input type="hidden" name="collection" value="{{ collection }}">
+                    <input type="hidden" name="doc_id" id="deleteDocId">
+                    <button type="submit" class="btn btn-danger">{{ t('delete') }}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Edit Modal -->
+<div class="modal fade" id="bulkEditModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ t('bulk_edit_title') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">{{ t('field') }}</label>
+                    <input type="text" class="form-control" id="bulkEditField" placeholder="{{ t('field_name') }}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">{{ t('new_value') }}</label>
+                    <input type="text" class="form-control" id="bulkEditValue" placeholder="{{ t('new_value') }}">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ t('cancel') }}</button>
+                <button type="button" class="btn btn-primary" onclick="bulkUpdate()">{{ t('apply') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Transfer Modal -->
+<div class="modal fade" id="transferModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ t('transfer_documents') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">{{ t('target_database') }}</label>
+                    <input type="text" class="form-control" id="targetDb">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">{{ t('target_collection') }}</label>
+                    <input type="text" class="form-control" id="targetCollection">
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="copyMode" checked>
+                    <label class="form-check-label" for="copyMode">
+                        {{ t('copy_keep_originals') }}
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ t('cancel') }}</button>
+                <button type="button" class="btn btn-info" onclick="transferDocuments()">{{ t('transfer') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const DATABASE = '{{ database }}';
+    const COLLECTION = '{{ collection }}';
+    
+    // Translation messages
+    const MSG = {
+        specifyFieldAndDocs: "{{ t('specify_field_and_docs') }}",
+        specifyTargetDbAndColl: "{{ t('specify_target_db_and_coll') }}",
+        documentsTransferred: "{{ t('documents_transferred') }}"
+    };
+    
+    function getSelectedIds() {
+        const checkboxes = document.querySelectorAll('.doc-checkbox:checked');
+        return Array.from(checkboxes).map(cb => cb.value);
+    }
+    
+    function updateBulkActions() {
+        const selected = getSelectedIds();
+        const bulkActions = document.getElementById('bulkActions');
+        const selectedCount = document.getElementById('selectedCount');
+        
+        if (selected.length > 0) {
+            bulkActions.classList.add('show');
+            selectedCount.textContent = selected.length;
+        } else {
+            bulkActions.classList.remove('show');
+        }
+    }
+    
+    function toggleSelectAll() {
+        const selectAll = document.getElementById('selectAll');
+        const checkboxes = document.querySelectorAll('.doc-checkbox');
+        checkboxes.forEach(cb => cb.checked = selectAll.checked);
+        updateBulkActions();
+    }
+    
+    function confirmDelete(docId) {
+        document.getElementById('deleteDocId').value = docId;
+        new bootstrap.Modal(document.getElementById('deleteModal')).show();
+    }
+    
+    async function bulkDelete() {
+        const ids = getSelectedIds();
+        if (ids.length === 0) return;
+        
+        if (!confirm(`Supprimer ${ids.length} document(s) ? Cette action est irréversible.`)) {
+            return;
+        }
+        
+        try {
+            await apiCall(`/api/database/${DATABASE}/collection/${COLLECTION}/bulk/delete`, 'POST', { ids });
+            location.reload();
+        } catch (e) {
+            console.error(e);
+        }
+    }
+    
+    async function bulkUpdate() {
+        const ids = getSelectedIds();
+        const field = document.getElementById('bulkEditField').value;
+        const value = document.getElementById('bulkEditValue').value;
+        
+        if (!field || ids.length === 0) {
+            alert(MSG.specifyFieldAndDocs);
+            return;
+        }
+        
+        const updates = {};
+        // Essayer de parser comme JSON, sinon utiliser comme string
+        try {
+            updates[field] = JSON.parse(value);
+        } catch {
+            updates[field] = value;
+        }
+        
+        try {
+            await apiCall(`/api/database/${DATABASE}/collection/${COLLECTION}/bulk/update`, 'POST', { ids, updates });
+            location.reload();
+        } catch (e) {
+            console.error(e);
+        }
+    }
+    
+    async function transferDocuments() {
+        const ids = getSelectedIds();
+        const targetDb = document.getElementById('targetDb').value;
+        const targetCollection = document.getElementById('targetCollection').value;
+        const copy = document.getElementById('copyMode').checked;
+        
+        if (!targetDb || !targetCollection) {
+            alert(MSG.specifyTargetDbAndColl);
+            return;
+        }
+        
+        try {
+            const result = await apiCall(`/api/database/${DATABASE}/collection/${COLLECTION}/transfer`, 'POST', {
+                target_db: targetDb,
+                target_collection: targetCollection,
+                ids: ids.length > 0 ? ids : null,
+                copy
+            });
+            
+            alert(MSG.documentsTransferred.replace('{count}', result.transferred_count));
+            if (!copy) location.reload();
+        } catch (e) {
+            console.error(e);
+        }
+    }
+</script>
+{% endblock %}

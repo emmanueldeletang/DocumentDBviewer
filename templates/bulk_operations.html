@@ -1,0 +1,484 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t('bulk_operations') }} - {{ collection }}{% endblock %}
+
+{% block content %}
+<div class="col-12 py-4">
+    <div class="container">
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('index') }}"><i class="bi bi-house"></i> {{ t('home') }}</a>
+                </li>
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('view_database', db_name=database) }}">{{ database }}</a>
+                </li>
+                <li class="breadcrumb-item">
+                    <a href="{{ url_for('view_collection', db_name=database, coll_name=collection) }}">{{ collection }}</a>
+                </li>
+                <li class="breadcrumb-item active">{{ t('bulk_operations') }}</li>
+            </ol>
+        </nav>
+        
+        <h2 class="mb-4">
+            <i class="bi bi-gear"></i> {{ t('bulk_operations') }} - {{ collection }}
+        </h2>
+        
+        <div class="row">
+            <!-- Import en masse -->
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header bg-success text-white">
+                        <i class="bi bi-upload"></i> {{ t('bulk_import') }}
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted">{{ t('import_description') }}</p>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">{{ t('json_documents_array') }}</label>
+                            <textarea class="form-control font-monospace" id="importData" rows="10" 
+                                      placeholder='[
+  {"field1": "value1", "field2": "value2"},
+  {"field1": "value3", "field2": "value4"}
+]'></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">{{ t('or_load_json_file') }}</label>
+                            <input type="file" class="form-control" id="importFile" accept=".json">
+                        </div>
+                        
+                        <button type="button" class="btn btn-success w-100" onclick="bulkImport()">
+                            <i class="bi bi-upload"></i> {{ t('import') }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Mise à jour en masse -->
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header bg-warning text-dark">
+                        <i class="bi bi-pencil-square"></i> {{ t('bulk_update') }}
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted">{{ t('update_description') }}</p>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">{{ t('selection_criteria') }}</label>
+                            <textarea class="form-control font-monospace" id="updateQuery" rows="4" 
+                                      placeholder='{"status": "pending"}'>{}</textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">{{ t('modifications_to_apply') }}</label>
+                            <textarea class="form-control font-monospace" id="updateData" rows="4" 
+                                      placeholder='{"status": "completed", "processed_at": "2024-01-01"}'>{}</textarea>
+                        </div>
+                        
+                        <button type="button" class="btn btn-warning w-100" onclick="bulkUpdateByQuery()">
+                            <i class="bi bi-pencil"></i> {{ t('update') }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Suppression en masse -->
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header bg-danger text-white">
+                        <i class="bi bi-trash"></i> {{ t('bulk_delete') }}
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted">{{ t('delete_description') }}</p>
+                        
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>{{ t('warning') }}:</strong> {{ t('irreversible_operation') }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">{{ t('delete_criteria') }}</label>
+                            <textarea class="form-control font-monospace" id="deleteQuery" rows="4" 
+                                      placeholder='{"status": "archived"}'>{}</textarea>
+                        </div>
+                        
+                        <div class="form-check mb-3">
+                            <input type="checkbox" class="form-check-input" id="confirmDelete">
+                            <label class="form-check-label" for="confirmDelete">
+                                {{ t('confirm_delete_checkbox') }}
+                            </label>
+                        </div>
+                        
+                        <button type="button" class="btn btn-danger w-100" onclick="bulkDeleteByQuery()">
+                            <i class="bi bi-trash"></i> {{ t('delete') }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Transfert de données -->
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-header bg-info text-white">
+                        <i class="bi bi-arrow-left-right"></i> {{ t('data_transfer') }}
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted">{{ t('transfer_description') }}</p>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">{{ t('target_database') }}</label>
+                            <select class="form-select" id="targetDatabase" onchange="updateTargetCollections()">
+                                {% for db in databases %}
+                                <option value="{{ db }}" {% if db == database %}selected{% endif %}>{{ db }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">{{ t('target_collection') }}</label>
+                            <select class="form-select" id="targetCollection">
+                                {% for coll in all_collections[database] %}
+                                {% if coll != collection %}
+                                <option value="{{ coll }}">{{ coll }}</option>
+                                {% endif %}
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">
+                                <input type="text" class="form-control form-control-sm mt-2" 
+                                       id="newCollectionName" placeholder="{{ t('or_create_new_collection') }}">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">{{ t('selection_criteria_optional') }}</label>
+                            <textarea class="form-control font-monospace" id="transferQuery" rows="3" 
+                                      placeholder='{"category": "archive"}'>{}</textarea>
+                            <small class="text-muted">{{ t('leave_empty_transfer_all') }}</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input type="radio" class="form-check-input" name="transferMode" 
+                                       id="transferCopy" value="copy" checked>
+                                <label class="form-check-label" for="transferCopy">
+                                    <i class="bi bi-files"></i> {{ t('copy_keep_originals') }}
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input type="radio" class="form-check-input" name="transferMode" 
+                                       id="transferMove" value="move">
+                                <label class="form-check-label" for="transferMove">
+                                    <i class="bi bi-arrow-right"></i> {{ t('move_delete_originals') }}
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <button type="button" class="btn btn-info w-100" onclick="transferData()">
+                            <i class="bi bi-arrow-right-circle"></i> {{ t('transfer') }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Créer un index texte -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-search"></i> {{ t('create_text_index') }}
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    {{ t('text_index_description') }}
+                </p>
+                
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="mb-3">
+                            <label class="form-label">{{ t('fields_to_index') }}</label>
+                            <select class="form-select" id="indexFields" multiple size="5">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <button type="button" class="btn btn-primary mt-4" onclick="createTextIndex()">
+                            <i class="bi bi-lightning"></i> {{ t('create_index') }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Résultats des opérations -->
+        <div class="card d-none" id="operationResult">
+            <div class="card-header">
+                <i class="bi bi-info-circle"></i> {{ t('operation_result') }}
+            </div>
+            <div class="card-body" id="operationResultBody">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const DATABASE = '{{ database }}';
+    const COLLECTION = '{{ collection }}';
+    const ALL_COLLECTIONS = {{ all_collections | tojson | safe }};
+    
+    // Translation messages
+    const MSG = {
+        dataNotArray: "{{ t('data_must_be_array') }}",
+        documentsImported: "{{ t('documents_imported') }}",
+        error: "{{ t('error') }}",
+        noDocumentsMatch: "{{ t('no_documents_match') }}",
+        documentsUpdated: "{{ t('documents_updated') }}",
+        confirmDeleteFirst: "{{ t('please_confirm_delete') }}",
+        confirmDeleteCount: "{{ t('confirm_delete_count') }}",
+        documentsDeleted: "{{ t('documents_deleted') }}",
+        selectTargetCollection: "{{ t('select_target_collection') }}",
+        documentsCopied: "{{ t('documents_copied') }}",
+        documentsMoved: "{{ t('documents_moved') }}",
+        selectAtLeastOneField: "{{ t('select_at_least_one_field') }}",
+        textIndexCreated: "{{ t('text_index_created') }}"
+    };
+    
+    // Charger les champs pour l'index texte
+    document.addEventListener('DOMContentLoaded', async function() {
+        try {
+            const schema = await apiCall(`/api/database/${DATABASE}/collection/${COLLECTION}/schema`);
+            const select = document.getElementById('indexFields');
+            
+            for (const [field, info] of Object.entries(schema)) {
+                if (info.types.includes('str')) {
+                    const option = document.createElement('option');
+                    option.value = field;
+                    option.textContent = field;
+                    select.appendChild(option);
+                }
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    });
+    
+    // File upload
+    document.getElementById('importFile').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('importData').value = e.target.result;
+            };
+            reader.readAsText(file);
+        }
+    });
+    
+    function updateTargetCollections() {
+        const db = document.getElementById('targetDatabase').value;
+        const select = document.getElementById('targetCollection');
+        select.innerHTML = '';
+        
+        if (ALL_COLLECTIONS[db]) {
+            ALL_COLLECTIONS[db].forEach(coll => {
+                if (coll !== COLLECTION || db !== DATABASE) {
+                    const option = document.createElement('option');
+                    option.value = coll;
+                    option.textContent = coll;
+                    select.appendChild(option);
+                }
+            });
+        }
+    }
+    
+    function showResult(success, message) {
+        const resultCard = document.getElementById('operationResult');
+        const resultBody = document.getElementById('operationResultBody');
+        
+        resultCard.classList.remove('d-none');
+        resultBody.innerHTML = `
+            <div class="alert alert-${success ? 'success' : 'danger'}">
+                <i class="bi bi-${success ? 'check-circle' : 'x-circle'}"></i>
+                ${message}
+            </div>
+        `;
+        
+        resultCard.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    async function bulkImport() {
+        const dataStr = document.getElementById('importData').value;
+        
+        try {
+            const documents = JSON.parse(dataStr);
+            
+            if (!Array.isArray(documents)) {
+                showResult(false, MSG.dataNotArray);
+                return;
+            }
+            
+            const result = await apiCall(
+                `/api/database/${DATABASE}/collection/${COLLECTION}/bulk/insert`,
+                'POST',
+                { documents }
+            );
+            
+            showResult(true, MSG.documentsImported.replace('{count}', result.inserted_count));
+        } catch (e) {
+            showResult(false, MSG.error + ': ' + e.message);
+        }
+    }
+    
+    async function bulkUpdateByQuery() {
+        const queryStr = document.getElementById('updateQuery').value;
+        const updateStr = document.getElementById('updateData').value;
+        
+        try {
+            const query = JSON.parse(queryStr);
+            const updates = JSON.parse(updateStr);
+            
+            // D'abord, trouver les documents correspondants
+            const searchResult = await apiCall(
+                `/api/database/${DATABASE}/collection/${COLLECTION}/search/query`,
+                'POST',
+                { query: queryStr }
+            );
+            
+            if (searchResult.count === 0) {
+                showResult(false, MSG.noDocumentsMatch);
+                return;
+            }
+            
+            // Récupérer les IDs
+            const ids = searchResult.documents.map(doc => doc._id.$oid || doc._id);
+            
+            // Mettre à jour
+            const result = await apiCall(
+                `/api/database/${DATABASE}/collection/${COLLECTION}/bulk/update`,
+                'POST',
+                { ids, updates }
+            );
+            
+            showResult(true, MSG.documentsUpdated.replace('{count}', result.modified_count));
+        } catch (e) {
+            showResult(false, MSG.error + ': ' + e.message);
+        }
+    }
+    
+    async function bulkDeleteByQuery() {
+        if (!document.getElementById('confirmDelete').checked) {
+            alert(MSG.confirmDeleteFirst);
+            return;
+        }
+        
+        const queryStr = document.getElementById('deleteQuery').value;
+        
+        try {
+            const query = JSON.parse(queryStr);
+            
+            // D'abord, trouver les documents correspondants
+            const searchResult = await apiCall(
+                `/api/database/${DATABASE}/collection/${COLLECTION}/search/query`,
+                'POST',
+                { query: queryStr }
+            );
+            
+            if (searchResult.count === 0) {
+                showResult(false, MSG.noDocumentsMatch);
+                return;
+            }
+            
+            if (!confirm(MSG.confirmDeleteCount.replace('{count}', searchResult.count))) {
+                return;
+            }
+            
+            // Récupérer les IDs
+            const ids = searchResult.documents.map(doc => doc._id.$oid || doc._id);
+            
+            // Supprimer
+            const result = await apiCall(
+                `/api/database/${DATABASE}/collection/${COLLECTION}/bulk/delete`,
+                'POST',
+                { ids }
+            );
+            
+            showResult(true, MSG.documentsDeleted.replace('{count}', result.deleted_count));
+        } catch (e) {
+            showResult(false, MSG.error + ': ' + e.message);
+        }
+    }
+    
+    async function transferData() {
+        const targetDb = document.getElementById('targetDatabase').value;
+        let targetColl = document.getElementById('targetCollection').value;
+        const newCollName = document.getElementById('newCollectionName').value;
+        const queryStr = document.getElementById('transferQuery').value;
+        const mode = document.querySelector('input[name="transferMode"]:checked').value;
+        
+        if (newCollName) {
+            targetColl = newCollName;
+        }
+        
+        if (!targetColl) {
+            alert(MSG.selectTargetCollection);
+            return;
+        }
+        
+        try {
+            // Trouver les documents à transférer
+            let ids = null;
+            const query = JSON.parse(queryStr);
+            
+            if (Object.keys(query).length > 0) {
+                const searchResult = await apiCall(
+                    `/api/database/${DATABASE}/collection/${COLLECTION}/search/query`,
+                    'POST',
+                    { query: queryStr }
+                );
+                ids = searchResult.documents.map(doc => doc._id.$oid || doc._id);
+            }
+            
+            const result = await apiCall(
+                `/api/database/${DATABASE}/collection/${COLLECTION}/transfer`,
+                'POST',
+                {
+                    target_db: targetDb,
+                    target_collection: targetColl,
+                    ids: ids,
+                    copy: mode === 'copy'
+                }
+            );
+            
+            const msg = mode === 'copy' ? MSG.documentsCopied : MSG.documentsMoved;
+            showResult(true, msg.replace('{count}', result.transferred_count).replace('{target}', `${targetDb}.${targetColl}`));
+        } catch (e) {
+            showResult(false, MSG.error + ': ' + e.message);
+        }
+    }
+    
+    async function createTextIndex() {
+        const select = document.getElementById('indexFields');
+        const fields = Array.from(select.selectedOptions).map(o => o.value);
+        
+        if (fields.length === 0) {
+            alert(MSG.selectAtLeastOneField);
+            return;
+        }
+        
+        try {
+            await apiCall(
+                `/api/database/${DATABASE}/collection/${COLLECTION}/index/text`,
+                'POST',
+                { fields }
+            );
+            
+            showResult(true, MSG.textIndexCreated.replace('{fields}', fields.join(', ')));
+        } catch (e) {
+            showResult(false, MSG.error + ': ' + e.message);
+        }
+    }
+</script>
+{% endblock %}
