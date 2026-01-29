@@ -1,0 +1,10 @@
+# Dépendances pour MongoDB Viewer Flask App
+
+# Framework Web
+Flask
+
+# Driver MongoDB
+pymongo
+
+# Sérialisation JSON pour MongoDB
+python-dateutil
