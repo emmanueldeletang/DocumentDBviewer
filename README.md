@@ -8,8 +8,12 @@ A complete Flask application to manage and explore DocumentDB/MongoDB databases.
 
 ### 🗂️ Navigation
 - Browse DocumentDB databases
+- - <img width="2579" height="711" alt="image" src="https://github.com/user-attachments/assets/ff3df961-4ae4-4fbc-ac24-aa4b86abef86" />
+
 - Explore collections
 - View documents with JSON formatting
+
+
 
 ### ✏️ Editing
 - Create new documents
@@ -285,4 +289,5 @@ Für den Produktionseinsatz:
 3. Konfigurieren Sie einen WSGI-Server (Gunicorn, uWSGI)
 4. Fügen Sie Benutzerauthentifizierung hinzu
 5. Verwenden Sie HTTPS
+
 
