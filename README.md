@@ -13,15 +13,21 @@ A complete Flask application to manage and explore DocumentDB/MongoDB databases.
 - Explore collections
 - View documents with JSON formatting
 
+<img width="2524" height="1266" alt="image" src="https://github.com/user-attachments/assets/9e57a8e6-da53-42a6-af50-28ada0a11fa8" />
 
 
 ### ✏️ Editing
 - Create new documents
 - Edit existing documents (built-in JSON editor)
+<img width="2478" height="918" alt="image" src="https://github.com/user-attachments/assets/7d68c36e-3651-4504-8e28-95a5aa9f42a0" />
+
 - Delete individual documents
 - **Bulk editing**: modify multiple documents at once
 - **Bulk import**: import multiple documents via JSON or file upload
 - **Data transfer**: copy or move documents between collections
+
+- <img width="2149" height="1268" alt="image" src="https://github.com/user-attachments/assets/9044e1ac-5d9b-4793-a648-f66cae6b6f76" />
+
 
 ### 🔍 Search
 - **Full-text search** on document content
@@ -34,6 +40,8 @@ A complete Flask application to manage and explore DocumentDB/MongoDB databases.
 - Language selection on first visit
 - Switch language anytime via navbar dropdown
 - Supported languages: English, French, German
+- <img width="2542" height="713" alt="image" src="https://github.com/user-attachments/assets/887b6f6b-ad0b-427b-bc28-9b27a8a4900c" />
+
 
 ### 🔌 REST API
 All features are accessible via API:
@@ -289,5 +297,6 @@ Für den Produktionseinsatz:
 3. Konfigurieren Sie einen WSGI-Server (Gunicorn, uWSGI)
 4. Fügen Sie Benutzerauthentifizierung hinzu
 5. Verwenden Sie HTTPS
+
 
 
